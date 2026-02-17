@@ -53,6 +53,12 @@ const setUpAPI = (app) => {
         }
     })
 
+    // all users for Admin manage
+    app.get('/api/users', async (req, res) => {
+        const users = await usersCollection.find().toArray();
+        res.send(users);
+    })
+
     // logged in user data
     app.get('/api/users/:email', async (req, res) => {
         try {
