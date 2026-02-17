@@ -53,7 +53,30 @@ const setUpAPI = (app) => {
         }
     })
 
+    // logged in user data
+    app.get('/api/users/:email', async (req, res) => {
+        try {
+            const email = req.params.email;
+            const user = await usersCollection.findOne({ email });
+            if (!user) {
+                return res.status(404).send({ message: "User not found" });
+            }
+            res.send(user);
+        } catch (error) {
+            res.send(500).send({ message: "Failed o fetch user" });
+        }
+    });
+
     // products api here
+    app.get('/api/products', async (req, res) => {
+        try {
+            const products = await productsCollection.find({ isActive: true }).toArray();
+            res.send(products);
+        } catch (error) {
+            return res.status(500).send({ message: error.message });
+        }
+    });
+
 
     // cart api here
 
