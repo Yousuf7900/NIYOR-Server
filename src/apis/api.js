@@ -83,6 +83,84 @@ const setUpAPI = (app) => {
         }
     });
 
+    // add product
+    app.post('/api/products', async (req, res) => {
+        try {
+            const productData = req.body;
+
+            // required field validation
+            const requiredFields = ["name", "slug", "description", "category", "price", "stockQty", "images"];
+            const missing = requiredFields.filter(f => productData?.[f] === undefined || productData?.[f] === null || productData?.[f] === "");
+            if (missing.length) {
+                return res.status(400).send({ message: `Missing required fields: ${missing.join(", ")}` })
+            }
+
+            // checking image
+            if (!Array.isArray(productData.images) || productData.images.length < 1) {
+                return res.status(400).send({ message: "At least 1 image is required" });
+            }
+
+            // data
+            const doc = {
+                name: String(productData.name).trim(),
+                slug: String(productData.slug).trim().toLowerCase(),
+                sku: productData.sku ? String(productData.sku).trim() : null,
+                description: String(productData.description).trim(),
+                fabric: productData.fabric ? String(productData.fabric).trim() : null,
+                category: String(productData.category).trim(),
+                price: Number(productData.price),
+                discountPrice: productData.discountPrice === null || productData.discountPrice === undefined || productData.discountPrice === "" ? null : Number(productData.discountPrice),
+                sizes: Array.isArray(productData.sizes) ? productData.sizes : [],
+                colors: Array.isArray(productData.colors) ? productData.colors : [],
+                images: productData.images,
+                stockQty: Number(productData.stockQty),
+                soldQty: productData.soldQty ? Number(productData.soldQty) : 0,
+                inStock: typeof productData.inStock === "boolean" ? productData.inStock : Number(productData.stockQty) > 0,
+                isFeatured: typeof productData.isFeatured === "boolean" ? productData.isFeatured : false,
+                isActive: typeof productData.isActive === "boolean" ? productData.isActive : true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+            // ---- validate numbers ----
+            if (Number.isNaN(doc.price) || doc.price <= 0) {
+                return res.status(400).send({ success: false, message: "Price must be a valid number > 0" });
+            }
+            if (Number.isNaN(doc.stockQty) || doc.stockQty < 0) {
+                return res.status(400).send({ success: false, message: "Stock Qty must be a valid number >= 0" });
+            }
+            if (doc.discountPrice !== null && (Number.isNaN(doc.discountPrice) || doc.discountPrice >= doc.price)) {
+                return res.status(400).send({ success: false, message: "Discount price must be a valid number and less than price" });
+            }
+
+            if (!doc.slug) {
+                return res.status(400).send({ success: false, message: "Slug cannot be empty" });
+            }
+
+            // ---- unique slug check ----
+            const existing = await productsCollection.findOne({ slug: doc.slug });
+            if (existing) {
+                return res.status(409).send({
+                    success: false,
+                    message: "Slug already exists. Please use a unique slug.",
+                });
+            }
+
+            // insert on db
+            const result = await productsCollection.insertOne(doc);
+            res.status(201).send({
+                success: true,
+                insertedId: result.insertedId,
+                message: "Product created successfully"
+            });
+        } catch (error) {
+            console.log("Failed to add product", error);
+            res.status(500).send({
+                success: false,
+                message: "Server error while creating product"
+            })
+        }
+    })
+
 
     // cart api here
 
