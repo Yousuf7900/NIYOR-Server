@@ -74,6 +74,48 @@ const setUpAPI = (app) => {
         }
     });
 
+    // update profile (name, phone, photoURL) - customer (safer)
+    app.patch("/api/users/profile", async (req, res) => {
+        try {
+            const { email, name, phone, photoURL } = req.body || {};
+
+            if (!email) {
+                return res.status(400).send({ message: "Email is required" });
+            }
+
+            const updateDoc = {};
+            if (typeof name === "string") updateDoc.name = name.trim();
+            if (typeof phone === "string") updateDoc.phone = phone.trim();
+            if (typeof photoURL === "string") updateDoc.photoURL = photoURL.trim();
+
+            if (Object.keys(updateDoc).length === 0) {
+                return res.status(400).send({ message: "Nothing to update" });
+            }
+
+            updateDoc.updatedAt = new Date().toISOString();
+
+            const result = await usersCollection.updateOne(
+                { email },
+                { $set: updateDoc }
+            );
+
+            if (result.matchedCount === 0) {
+                return res.status(404).send({ message: "User not found" });
+            }
+
+            res.send({
+                message: "Profile updated",
+                matchedCount: result.matchedCount,
+                modifiedCount: result.modifiedCount,
+            });
+        } catch (error) {
+            console.error("PATCH /api/users/profile error:", error);
+            res.status(500).send({ message: "Server error" });
+        }
+    });
+
+
+
     // products api here
     app.get('/api/products', async (req, res) => {
         try {
