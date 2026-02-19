@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { getDB } = require('../db');
 const verifyToken = require('../middlewares/verifyToken');
+const { ObjectId } = require('mongodb');
 const setUpAPI = (app) => {
     const db = getDB();
     // all the collections
@@ -159,7 +160,105 @@ const setUpAPI = (app) => {
                 message: "Server error while creating product"
             })
         }
-    })
+    });
+
+    // product details: admin
+    app.get('/api/products/:id', async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            if (!ObjectId.isValid(id)) {
+                return res.status(400).json({ message: "Invalid product id" });
+            }
+
+            const product = await productsCollection.findOne({
+                _id: new ObjectId(id),
+            });
+
+            if (!product) {
+                return res.status(404).json({ message: "Product not found" });
+            }
+
+            res.status(200).json(product);
+
+        } catch (error) {
+            console.error("GET /api/products/:id error:", error);
+            res.status(500).json({ message: "Server error" });
+        }
+    });
+
+    // delete product (admin)
+    app.delete("/api/products/:id", async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            if (!ObjectId.isValid(id)) {
+                return res.status(400).json({ message: "Invalid product id" });
+            }
+
+            const result = await productsCollection.deleteOne({
+                _id: new ObjectId(id),
+            });
+
+            if (result.deletedCount === 0) {
+                return res.status(404).json({ message: "Product not found" });
+            }
+
+            res.status(200).json({ message: "Product deleted", deletedCount: result.deletedCount });
+        } catch (error) {
+            console.error("DELETE /api/products/:id error:", error);
+            res.status(500).json({ message: "Server error" });
+        }
+    });
+
+    // update product (admin)
+    app.put("/api/products/:id", async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            if (!ObjectId.isValid(id)) {
+                return res.status(400).json({ message: "Invalid product id" });
+            }
+
+            const updatedDoc = req.body || {};
+
+            delete updatedDoc._id;
+
+            const toNumber = (v) => (v === "" || v === null || v === undefined ? v : Number(v));
+
+            if (updatedDoc.price !== undefined) updatedDoc.price = toNumber(updatedDoc.price);
+            if (updatedDoc.discountPrice !== undefined) updatedDoc.discountPrice = toNumber(updatedDoc.discountPrice);
+            if (updatedDoc.stockQty !== undefined) updatedDoc.stockQty = toNumber(updatedDoc.stockQty);
+            if (updatedDoc.soldQty !== undefined) updatedDoc.soldQty = toNumber(updatedDoc.soldQty);
+
+            if (updatedDoc.stockQty !== undefined) {
+                updatedDoc.inStock = Number(updatedDoc.stockQty) > 0;
+            }
+
+            updatedDoc.updatedAt = new Date();
+
+            const result = await productsCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: updatedDoc }
+            );
+
+            if (result.matchedCount === 0) {
+                return res.status(404).json({ message: "Product not found" });
+            }
+
+            res.status(200).json({
+                message: "Product updated",
+                matchedCount: result.matchedCount,
+                modifiedCount: result.modifiedCount,
+            });
+        } catch (error) {
+            console.error("PUT /api/products/:id error:", error);
+            res.status(500).json({ message: "Server error" });
+        }
+    });
+
+
+
 
 
     // cart api here
